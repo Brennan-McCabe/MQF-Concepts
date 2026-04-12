@@ -1,0 +1,46 @@
+import numpy as np
+import yfinance as yf
+from statsmodels.tsa.stattools import adfuller
+
+def get_hurst_exponent(time_series, max_lag=20):
+    """
+    Calculates the Hurst Exponent.
+    H < 0.5: Mean Reverting
+    H = 0.5: Random Walk
+    H > 0.5: Trending
+    """
+    lags = range(2, max_lag)
+    # Calculate the variance of the difference for each lag
+    tau = [np.sqrt(np.std(np.subtract(time_series[lag:], time_series[:-lag]))) for lag in lags]
+    # Calculate the slope of the log plot
+    poly = np.polyfit(np.log(lags), np.log(tau), 1)
+    return poly[0] * 2.0
+
+# 1. Download Data (e.g., S&P 500)
+ticker = "^GSPC" 
+# Use auto_adjust=True to get adjusted prices in the 'Close' column
+data = yf.download(ticker, start="2015-01-01", end="2024-01-01", auto_adjust=True)['Close']
+# 2. Run Augmented Dickey-Fuller Test
+# Null Hypothesis (H0): The series has a unit root (is a Random Walk)
+adf_result = adfuller(data)
+p_value = adf_result[1]
+
+# 3. Calculate Hurst Exponent
+# We use log prices for Hurst to normalize growth
+hurst = get_hurst_exponent(np.log(data).values)
+
+# --- Results ---
+print(f"--- Analysis for {ticker} ---")
+print(f"ADF P-Value: {p_value:.4f}")
+if p_value > 0.05:
+    print("Result: Failed to reject H0. Data is consistent with a Random Walk.")
+else:
+    print("Result: Rejected H0. Data shows signs of stationarity (not a Random Walk).")
+
+print(f"Hurst Exponent: {hurst:.4f}")
+if 0.45 < hurst < 0.55:
+    print("Result: Behavior is close to a Geometric Random Walk.")
+elif hurst < 0.45:
+    print("Result: Evidence of Mean Reversion.")
+else:
+    print("Result: Evidence of Trending Behavior.")
