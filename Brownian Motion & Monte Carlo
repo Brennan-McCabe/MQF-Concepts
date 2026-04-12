@@ -1,0 +1,65 @@
+import numpy as np
+import pandas as pd
+import yfinance as yf
+import matplotlib.pyplot as plt
+
+# 1. Setup Parameters from Historical Data
+ticker = "^GSPC" # S&P 500
+raw_data = yf.download(ticker, start="2023-01-01", auto_adjust=True)['Close']
+
+# Fix for yfinance MultiIndex: Ensure 'data' is a single-column Series
+if isinstance(raw_data, pd.DataFrame):
+    data = raw_data.iloc[:, 0]
+else:
+    data = raw_data
+
+# Calculate Log Returns
+returns = np.log(data / data.shift(1)).dropna()
+
+# Calculate Drift (mu) and Volatility (sigma) 
+# We use float() to ensure these are single numbers for the math loop
+mu = float(returns.mean())
+sigma = float(returns.std())
+last_price = float(data.iloc[-1])
+
+# 2. GBM Simulation Settings
+days_to_forecast = 252  # One trading year
+simulations = 1000
+
+# 3. Run Simulation
+# Create a matrix (Rows = Days, Columns = Individual Simulation Runs)
+price_paths = np.zeros((days_to_forecast, simulations))
+price_paths[0] = last_price
+
+for t in range(1, days_to_forecast):
+    # The Stochastic Equation: S_t = S_{t-1} * exp((mu - 0.5*sigma^2) + sigma * Z)
+    # Z represents the 'Random Walk' component (Standard Normal Distribution)
+    Z = np.random.standard_normal(simulations)
+    price_paths[t] = price_paths[t-1] * np.exp((mu - 0.5 * sigma**2) + sigma * Z)
+
+# 4. Visualization
+plt.figure(figsize=(12, 6))
+
+# Plot all 1,000 paths with high transparency (alpha) to see the 'density'
+plt.plot(price_paths, color='blue', alpha=0.03) 
+
+# Plot the Median Path (The 50th percentile)
+plt.plot(np.percentile(price_paths, 50, axis=1), color='red', linewidth=2, label='Median Path (Drift)')
+
+# Plot the 5% and 95% confidence intervals
+plt.plot(np.percentile(price_paths, 5, axis=1), color='black', linestyle='--', label='5th Percentile (Downside Risk)')
+plt.plot(np.percentile(price_paths, 95, axis=1), color='black', linestyle='--', label='95th Percentile (Upside Potential)')
+
+plt.title(f"Monte Carlo Simulation: {ticker} (Geometric Brownian Motion)")
+plt.xlabel("Days into Future")
+plt.ylabel("Price")
+plt.legend(loc='upper left')
+plt.grid(True, alpha=0.3)
+plt.show()
+
+# 5. Summary Statistics
+ending_prices = price_paths[-1]
+print(f"--- Results after {days_to_forecast} days ---")
+print(f"Starting Price: {last_price:.2f}")
+print(f"Expected (Median) Price: {np.median(ending_prices):.2f}")
+print(f"Value at Risk (5th Percentile): {np.percentile(ending_prices, 5):.2f}")
