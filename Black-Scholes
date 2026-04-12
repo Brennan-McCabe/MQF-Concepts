@@ -1,0 +1,62 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+
+def black_scholes_call(S, K, T, r, sigma):
+    """
+    Calculates the European Call Option price using Black-Scholes.
+    """
+    # Using np instead of math to handle arrays for plotting
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+    
+    return S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
+
+# --- AAPL Real-World Data ---
+S_current = 260.48    # Current Stock Price
+K = 260.00            # Strike Price
+T = 35 / 365          # Time to Expiry (35 days converted to years)
+r = 0.0368            # Risk-Free Rate (3.68%)
+vol_hist = 0.2071     # Historical Volatility (20.71%)
+vol_impl = 0.2796     # Implied Volatility (27.96%)
+
+# --- 1. Calculate Specific Prices at Current Stock Value ---
+price_hist = black_scholes_call(S_current, K, T, r, vol_hist)
+price_impl = black_scholes_call(S_current, K, T, r, vol_impl)
+
+print(f"Calculated Academic Value (Hist. Vol): ${price_hist:.2f}")
+print(f"Actual Market Value (Implied Vol):     ${price_impl:.2f}")
+
+# --- 2. Generate Data for Visualization ---
+# Create an array of hypothetical stock prices from $220 to $300
+S_range = np.linspace(220, 300, 100)
+
+# Calculate what the option WOULD be worth at all those stock prices
+curve_hist = black_scholes_call(S_range, K, T, r, vol_hist)
+curve_impl = black_scholes_call(S_range, K, T, r, vol_impl)
+
+# --- 3. Plotting ---
+plt.figure(figsize=(10, 6))
+
+# Plot the two curves
+plt.plot(S_range, curve_impl, label=f'Market Price (Implied Vol: {vol_impl*100:.2f}%)', color='darkorange', linewidth=2.5)
+plt.plot(S_range, curve_hist, label=f'Academic Price (Historical Vol: {vol_hist*100:.2f}%)', color='steelblue', linestyle='--', linewidth=2.5)
+
+# Drop a vertical line at the current stock price
+plt.axvline(x=S_current, color='gray', linestyle=':', alpha=0.7)
+
+# Mark the exact intersection points we calculated earlier
+plt.scatter([S_current, S_current], [price_impl, price_hist], color=['darkorange', 'steelblue'], s=80, zorder=5)
+plt.annotate(f'${price_impl:.2f} (Market)', (S_current, price_impl), textcoords="offset points", xytext=(-10, 10), ha='right', color='darkorange', fontweight='bold')
+plt.annotate(f'${price_hist:.2f} (Academic)', (S_current, price_hist), textcoords="offset points", xytext=(10, -15), ha='left', color='steelblue', fontweight='bold')
+
+# Formatting
+plt.title('Apple (AAPL) May 15 Call Option ($260 Strike)\nEffect of Volatility on Option Pricing', fontsize=14, pad=15)
+plt.xlabel('Underlying Stock Price ($)', fontsize=12)
+plt.ylabel('Call Option Value ($)', fontsize=12)
+plt.legend(loc='upper left', fontsize=11)
+plt.grid(True, alpha=0.3)
+
+# Save the resulting chart
+plt.savefig('black_scholes_aapl.png', bbox_inches='tight', dpi=150)
+print("Visualization saved as 'black_scholes_aapl.png'")
