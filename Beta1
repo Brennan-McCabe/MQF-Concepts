@@ -1,0 +1,40 @@
+import yfinance as yf
+import numpy as np
+import pandas as pd
+
+def calculate_beta(stock_ticker, market_ticker="^GSPC", period="5y"):
+    print(f"Fetching data for {stock_ticker} and {market_ticker} over the last {period}...")
+    
+    data = yf.download([stock_ticker, market_ticker], period=period)['Close']
+    
+    if data.empty or stock_ticker not in data.columns or market_ticker not in data.columns:
+        raise ValueError("Failed to download data. Please check the ticker symbols.")
+
+    returns = data.pct_change().dropna()
+
+    stock_returns = returns[stock_ticker]
+    market_returns = returns[market_ticker]
+
+    cov_matrix = np.cov(stock_returns, market_returns)
+    covariance = cov_matrix[0, 1]
+    market_variance = cov_matrix[1, 1]
+
+    beta = covariance / market_variance
+    
+    return beta
+
+if __name__ == "__main__":
+    target_stock = input("Enter the stock ticker symbol (e.g., AAPL, MSFT, TSLA): ").strip().upper()
+    
+    if target_stock:
+        try:
+            stock_beta = calculate_beta(stock_ticker=target_stock, market_ticker="^GSPC", period="3y")
+            
+            print("\n--- Results ---")
+            print(f"The 3-Year Beta for {target_stock} is: {stock_beta:.4f}")
+            
+        except Exception as e:
+            print(f"\nAn error occurred: {e}")
+            print("Please double-check that you entered a valid, currently trading ticker symbol.")
+    else:
+        print("No ticker symbol entered. Exiting program.")
